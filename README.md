@@ -177,3 +177,144 @@ Process.wait
 abort "Parent process died..."
 ```
 
+Process.waitは親プロセスをブロックし、子プロセスを実行するが、複数の子プロセスを作成した時の為にはProcess.waitの戻り値を使って判断する
+
+```ruby
+3.times do
+  fork do
+    # 各プロセス毎に5秒未満でランダムにスリープ
+    sleep rand(5)
+  end
+end
+
+3.times do
+  # 子プロセス夫々の終了を待ち、帰ってきたpidを出力
+  puts Process.wait
+end
+```
+
+Process.wait2というメッソドも存在し、これは返値にpidと終了ステータスの2つを返す
+Process.wait2から返される終了ステータスはProcess::Statusクラスのインスタンスで
+どのようにプロセスが終了したのかを正確に知るための情報を保持する
+
+```ruby
+5.times do
+  fork do
+    # 子プロセス毎にランダムな値を生成
+    # 偶数なら111を、基数なら112を終了コードして返す
+    if rand(5).even?
+      exit 111
+    else
+      exit 112
+    end
+  end
+end
+
+5.times do
+  pid, status = Process.wait2
+
+  if status.exitstatus == 111
+    puts "#{pid} encountered an even number!"
+  else
+    puts "#{pid} encountered an even number!"
+  end
+end
+```
+
+Process.wait2の他にもProcess.waitpidとProcess.waitpid2というのも存在していて、
+これらは指定した子プロセスの終了を待つという役割を持っている
+
+```ruby
+favorite = fork do
+  exit 77
+end
+
+middle_child = fork do
+  abort "I want to be waited on!"
+end
+
+pid, status = Process.waitpid2 favorite
+puts status.exitstatus
+```
+
+終了したプロセスを扱ってる最中に別のプロセスが終了したら？
+Proces.waitにたどり着いていないのに別の子プロセスが終了したら？
+実際はキューの仕組みになっているので、親がどのタイミングでwaitしても問題はない
+※ ただ、子プロセスが一つもない状態でProcess.waitを呼ぶと例外がスローされるので注意
+
+```ruby
+```
+
+```ruby
+2.times do
+  fork do
+    # いずれもすぐに終了する
+    abort "Finished!"
+  end
+end
+
+# スリープしている間に２つのコプセスが終了する
+puts Process.wait
+sleep 5
+
+# 親プロセスで再びwaitすると
+# ２つ目の子プロセスの終了情報がここに帰ってくる
+puts Process.wait
+```
+
+ここでの肝は、用意した１つのプロセスから並行処理のために複数の子プロセス生成して、
+その後は子プロセスの面倒を見るという所
+子プロセスたちが応答するのかを確かめたり、子プロセスが終了した際には、その後始末をしたりする
+
+UniconrというWEBサーバはこのパターンを採用している
+
+## １５章
+非同期でタスクを処理するために「打ちっぱなし」で子プロセスを作成したが、今度は
+ちゃんと子プロセスを始末するためのセクション
+
+ゾンビプロセスは親プロセスに待たれずに死んでしまった子プロセス全てということ
+なので、親プロセスが子プロセスを待っていない間に子プロセスが終了してしまったら、確実にゾンビになる
+spawnlingというgemパッケージはプロセスやスレッドを扱う総称的なAPIを提供することに加えて
+「打ちっぱなし」で生成した子プロセスをきちんとデタッチしてくれる
+
+Process.waitは子プロセスが終了してから長時間経過しても取得することができる
+カーネルは親プロセスがProcess.waitを使ってその情報を要求するまで、
+終了した子プロセスの情報をずっと持ち続けてしまい、カーネルのリソースを無駄遣いしてしまう
+
+子プロセスを待つつもりがないのなら、子プロセスをデタッチしなければならない
+
+```ruby
+mesage = 'Good Morning'
+recipient = 'tree@mybackyard.com'
+
+pid = fork do
+  StatsCollector.record message, recipient
+end
+
+# pidを指定してデタッチする(ゾンビにならないようにする)
+Process.detach(pid)
+```
+
+Process.detachは新しいスレッドを生成して、pidで支持された子プロセスの終了を待ち受ける
+こうすることで、カーネルは誰からも必要とされない終了ステータスを待ち続けなくて良くなる
+
+（孫プロセスを作ったり、本当にデタッチするわけではない）
+
+```ruby
+# 1病後に終了する子プロセスを生成
+pid = fork { sleep 1 }
+# 終了した子プロセスのpidを出力
+puts pid
+# 親プロセスのpidを出力
+sleep 5
+```
+
+上記のようにすれば子プロセスのステータスを調査することが可能になりので、下記のコマンドで確認する（zかZ+になっているはず）
+
+
+```bash
+$ ps -ho pid,state -p [zombie-process-id]
+```
+
+
+
