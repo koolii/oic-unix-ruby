@@ -351,6 +351,17 @@ Process.wait(-1, Process:WNOHANG)
 
 別ターミナルで２つのrubyスクリプトを実行する(wait.rbでpidを確認してからkill.rbでプロセスを強制終了)
 `src/16/wait.rb`
-`src/16/kill.rb`
+`src/16/interrupt.rb`
 
 INT(interrupt)シグナルを使ってプロセスを中断し、強制終了させる
+ただし、INTシグナルの振る舞いを上書きするとプロセスはどうなるか => `src/16/wait-block.rb`を実行後に、`src/16/interrupt.rb`でプロセスをkillしてみる
+結果としてはkillされずにプロセスはそのままになる
+
+それでもSIGKILLシグナルを使うと必ずプロセスをkillすることが出来る
+
+```ruby
+Process.kill(:KILL, <最初の ruby プロセスの pid>)
+```
+
+
+
