@@ -367,5 +367,8 @@ Process.kill(:KILL, <最初の ruby プロセスの pid>)
 同一のシグナルに対する実装が上書きされてしまわないようにする
 
 SIGINTの実装をそのまま使った上で、独自の実装を加える => `src/16/covered-sigint.rb`
+システム標準のSIGINT処理はシステムエラーになる => `src/16/confirm-if-covered-system-sigint.rb`
+
+
 
 
