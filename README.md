@@ -412,3 +412,29 @@ IPCは物理マシン上でのプロセス間通信が前提であるから
 共有データベースやログファイルの代わりに通信チャンネルとしてよく使われている
 
 SpyglassプロジェクトのSpyglassMasterクラスを参考にすると、一つのパイプを通じて親プロセスと通信する具体例が示されている
+
+## １８章 デーモン
+デーモンプロセスはバックグラウンドで動作するプロセスで、サーバのようなリクエストを捌くために
+バックグラウンドで常に動作するプロセスがあげられる
+さまざまなデーモンプロセスがシステムを正常に動作することを支えている
+
+OSにとって特別重要なデーモンプロセスがあり、それはinitプロセス
+initプロセスのppidは0で「すべてのプロセスの始祖」、pidは1となる
+
+rackを例とすると、rackupコマンドで起動し、さまざまなrack対応webサーバ上でアプリをホストする(プロセスをバックグラウンドで実行される箇所を見てみる)
+Process.daemonを呼び出すだけでプロセスをデーモン化させられる
+
+```ruby
+def daemonize_app
+  if RUBY_VERSION < "1.9"
+    exit if fork
+    Process.setsid
+    exit if fork
+    Dir.chdir "/"
+    STDIN.reopen "/dev/null"
+    STDOUT.reopen "/dev/null", "a"
+    STDERR.reopen "/dev/null", "a"
+  else
+    Process.daemon
+end end
+```
